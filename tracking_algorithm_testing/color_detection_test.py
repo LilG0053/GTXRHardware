@@ -1,2 +1,73 @@
 import cv2
 import numpy as np
+
+cap = cv2.VideoCapture('output.avi')
+bparams = cv2.SimpleBlobDetector_Params()
+bparams.filterByArea = True
+bparams.minArea = 30
+bparams.maxArea = 300
+bparams.filterByCircularity = True
+bparams.minCircularity = 0.5
+bparams.filterByConvexity = False
+bparams.filterByInertia = True
+bparams.minInertiaRatio = 0.4
+bparams.minThreshold = 100
+bparams.maxThreshold = 250
+bdet = cv2.SimpleBlobDetector_create(bparams)
+
+firsttime = True
+matcher = cv2.BFMatcher(cv2.NORM_L2, crossCheck=True)
+
+sift = cv2.SIFT_create()
+seenmatches = []
+matchstats = []
+matchage = []
+
+while(1):
+    ret, img = cap.read()
+    if not ret:
+        break
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    rev = 255 - gray
+    keypoints = bdet.detect(rev)
+    descriptors = np.array([point.pt for point in keypoints], np.float32)
+    #print(descriptors)
+    blank = np.zeros((1, 1))
+    if not firsttime:
+        matches = matcher.match(descriptors, lastdescriptors)
+        goodpts = []
+        for match in matches:
+            lastloc = lastpoints[match.trainIdx].pt
+            curloc = keypoints[match.queryIdx].pt
+            try:
+                matchidx = seenmatches.index(lastpoints[match.trainIdx])
+            except:
+                matchidx = -1
+            if matchidx != -1:
+                matchstats[matchidx] += 1
+                seenmatches[matchidx] = keypoints[match.queryIdx]
+            else:
+                seenmatches.append(keypoints[match.queryIdx])
+                matchstats.append(2)
+                matchage.append(2)
+            #print(str(lastloc) + " " + str(curloc))
+            goodpts.append(keypoints[match.queryIdx])
+            blobs = cv2.drawKeypoints(img, goodpts, blank, (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        matchage = [age + 1 for age in matchage]
+        for i in range(len(matchage))[::-1]:
+            if matchage[i] > matchstats[i] + 1:
+                matchstats.pop(i)
+                seenmatches.pop(i)
+                matchage.pop(i)
+        print(matchstats)
+    else:
+        blobs = cv2.drawKeypoints(img, keypoints, blank, (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    cv2.imshow('image',blobs)
+    x = cv2.waitKey(33)
+    if x == 27:
+        break
+    lastpoints = keypoints
+    lastdescriptors = descriptors
+    firsttime = False
+
+cap.release()
