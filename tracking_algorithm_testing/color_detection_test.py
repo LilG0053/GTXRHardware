@@ -19,7 +19,6 @@ bdet = cv2.SimpleBlobDetector_create(bparams)
 firsttime = True
 matcher = cv2.BFMatcher(cv2.NORM_L2, crossCheck=True)
 
-sift = cv2.SIFT_create()
 seenmatches = []
 matchstats = []
 matchage = []
@@ -38,7 +37,6 @@ while(1):
     blank = np.zeros((1, 1))
     if not firsttime:
         matches = matcher.match(descriptors, lastdescriptors)
-        goodpts = []
         for match in matches:
             lastloc = lastpoints[match.trainIdx].pt
             curloc = keypoints[match.queryIdx].pt
@@ -46,6 +44,7 @@ while(1):
             cx = round(curloc[1])
             cy = round(curloc[0])
             curpatch = img[cx-currad:cx+currad,cy-currad:cy+currad]
+            #todo: set hue to actual hue instead of red or blue channel
             colavg = np.mean(curpatch, axis=(0,1))
             hue = float(colavg[0])
             try:
@@ -61,7 +60,6 @@ while(1):
                 matchstats.append(2)
                 matchage.append(2)
                 trackedcolors.append([hue])
-            goodpts.append(keypoints[match.queryIdx])
         matchage = [age + 1 for age in matchage]
         for i in range(len(matchage))[::-1]:
             if matchage[i] > matchstats[i] + 1:
