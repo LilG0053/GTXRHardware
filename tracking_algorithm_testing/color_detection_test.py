@@ -44,9 +44,10 @@ while(1):
             cx = round(curloc[1])
             cy = round(curloc[0])
             curpatch = img[cx-currad:cx+currad,cy-currad:cy+currad]
-            #todo: set hue to actual hue instead of red or blue channel
-            colavg = np.mean(curpatch, axis=(0,1))
-            hue = float(colavg[0])
+            hsvpatch = cv2.cvtColor(curpatch, cv2.COLOR_BGR2HSV)
+            colavg = np.array([[np.mean(curpatch, axis=(0,1))]],dtype=np.uint8)
+            hsvavg = cv2.cvtColor(colavg, cv2.COLOR_BGR2HSV)
+            hue = float(hsvavg[0,0,0])
             try:
                 matchidx = seenmatches.index(lastpoints[match.trainIdx])
             except:
