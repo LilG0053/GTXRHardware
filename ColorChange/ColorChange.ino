@@ -24,8 +24,8 @@ enum RGB {
   B
 };
 
-RGB LED1[2] = {G, R}; //RGB pattern for first neopixel
-RGB LED2[2] = {R, B}; //second neopixel
+RGB LED1[3] = {G, R, B}; //RGB pattern for first neopixel
+RGB LED2[3] = {R, B, G}; //second neopixel
 
 // Declare our NeoPixel strip object:
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
@@ -55,19 +55,26 @@ void setup() {
 
 void loop() {
 
-  for (int i = 0; i < 2; i++) {
-    if (LED1[i] == R) {
+  for (int i = 0; i < LED1.length; i++) {
+    switch (LED1[i]) {
+      case R:
         strip.setPixelColor(0, strip.Color(255, 0, 0));
-    } else if (LED1[i] == G) {
+      case G:
         strip.setPixelColor(0, strip.Color(0, 255, 0));
+      case B:
+        strip.setPixelColor(0, strip.Color(0, 0, 255));
+
     }
     strip.show();
-    delay(250);
-    if (LED2[i] == R) {
-      strip.setPixelColor(1, strip.Color(255, 0, 0));
-    } else if (LED2[i] == B) {
+    delay(50);
+    switch (LED2[i]) {
+      case R:
+        strip.setPixelColor(1, strip.Color(255, 0, 0));
+      case G:
         strip.setPixelColor(1, strip.Color(0, 255, 0));
-    }
+      case B:
+        strip.setPixelColor(1, strip.Color(0, 0, 255));
+    }    
     strip.show();
   }
 
