@@ -111,7 +111,7 @@ while(1):
             saturation = float(hsvavg[0,0,1])
 
             # Checks to see if current match has been seen before (uses previous keypoint)
-            matchidx = seenmatches.index(lastpoints[match.trainIdx])
+            matchidx = seenmatches.index(lastpoints[match.trainIdx]) if lastpoints[match.trainIdx] in seenmatches else -1
             if matchidx != -1:
                 # Increments number of times point has been successfully matched
                 matchstats[matchidx] += 1
