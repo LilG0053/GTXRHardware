@@ -178,12 +178,7 @@ while(1):
 cap.release()
 cv2.destroyAllWindows()
 
-<<<<<<< Updated upstream
 npcolors = [np.array(hue) for hue in trackedhue]
-=======
-# Plot of hues for different matches
-npcolors = np.array(trackedhue)
->>>>>>> Stashed changes
 
 for dot in npcolors:
     plt.plot(dot)
