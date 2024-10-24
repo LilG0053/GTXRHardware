@@ -111,7 +111,7 @@ while(1):
 cap.release()
 cv2.destroyAllWindows()
 
-npcolors = np.array(trackedhue)
+npcolors = [np.array(hue) for hue in trackedhue]
 
 for dot in npcolors:
     plt.plot(dot)
