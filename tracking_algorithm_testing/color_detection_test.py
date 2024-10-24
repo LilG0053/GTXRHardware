@@ -59,6 +59,14 @@ trackedhue = []
 # The saturation of each matched point
 trackedsat = []
 
+
+# Hue ranges for identifying colors
+hueranges = np.array([[160, 20], [75, 100], [100, 125]])
+
+# Stores color pattern
+colseq = np.zeros(2)
+
+
 demorad = 256
 democolors = ((255,255,0),(255,0,255),(0,255,255))
 demoimg = np.zeros((demorad*2,demorad*2,3),np.uint8)
@@ -119,7 +127,18 @@ while(1):
                 seenmatches[matchidx] = keypoints[match.queryIdx]
 
                 # Updates hue and saturation of matched point
+                detected = -1
                 trackedhue[matchidx].append(hue)
+                for i in range(len(hueranges)):
+                    if hueranges[i, 0] < hueranges[i, 1]:
+                        if hue > hueranges[i, 0] and hue < hueranges[i, 1]:
+                            detected = i
+                    else:
+                        if hue > hueranges[i, 0] or hue < hueranges[i, 1]:
+                            detected = i
+                
+                print(f"Color Num: {detected} Hue {hue}")         
+
                 trackedsat[matchidx].append(saturation)
             else:
                 # Adds new match to list
@@ -140,7 +159,6 @@ while(1):
                 matchage.pop(i)
                 trackedhue.pop(i)
                 trackedsat.pop(i)
-        print(len(trackedhue[0]))
         # Draws blobs
         if showcameraview:
             blobs = cv2.drawKeypoints(img, seenmatches, blank, (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
