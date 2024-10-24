@@ -59,12 +59,20 @@ trackedhue = []
 # The saturation of each matched point
 trackedsat = []
 
+# Color to synchronize off of
+syncColor = 0
 
 # Hue ranges for identifying colors
 hueranges = np.array([[160, 20], [75, 100], [100, 125]])
 
-# Stores color pattern
-colseq = np.zeros(2)
+onSyncColor = False
+
+syncing = False
+
+syncNum = 0
+
+# Buffer for color sequence
+buffer = []
 
 
 demorad = 256
@@ -137,7 +145,22 @@ while(1):
                         if hue > hueranges[i, 0] or hue < hueranges[i, 1]:
                             detected = i
                 
-                print(f"Color Num: {detected} Hue {hue}")         
+                print(f"Color Num: {detected} Hue {hue}") 
+                if detected == syncColor and (not onSyncColor):
+                    onSyncColor = True
+                    syncNum+=1
+                    if not syncing:
+                        syncing = True
+                        buffer = []
+                if detected != syncColor and onSyncColor:
+                    onSyncColor = False
+                    if syncing and syncNum >= 2:
+                        syncing = False
+                        syncNum = 0
+                        print(buffer)
+                if syncing:
+                    buffer.append(detected)
+                       
 
                 trackedsat[matchidx].append(saturation)
             else:
