@@ -145,7 +145,6 @@ while(1):
                         if hue > hueranges[i, 0] or hue < hueranges[i, 1]:
                             detected = i
                 
-                print(f"Color Num: {detected} Hue {hue}") 
                 if detected == syncColor and (not onSyncColor):
                     onSyncColor = True
                     syncNum+=1
@@ -157,7 +156,14 @@ while(1):
                     if syncing and syncNum >= 2:
                         syncing = False
                         syncNum = 0
-                        print(buffer)
+                        code = np.array(buffer, dtype=np.int16)
+                        syncLoc = np.diff((code == syncColor).astype(np.int16))
+                        syncStart = np.where(syncLoc == -1)[0][0]/2.
+                        syncEnd = (np.where(syncLoc == 1)[0][0]+(len(syncLoc)-1)+2)/2.
+                        intervals = np.linspace(syncStart, syncEnd, len(hueranges) + 1)
+                        sequence = code[np.round(intervals[:len(hueranges)]).astype(np.int16)]
+                        print(f"Point: {matchidx} ID Sequence: {sequence}")
+
                 if syncing:
                     buffer.append(detected)
                        
