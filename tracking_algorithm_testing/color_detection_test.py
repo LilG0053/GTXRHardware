@@ -161,7 +161,7 @@ while(1):
                         syncStart = np.where(syncLoc == -1)[0][0]/2.
                         syncEnd = (np.where(syncLoc == 1)[0][0]+(len(syncLoc)-1)+2)/2.
                         intervals = np.linspace(syncStart, syncEnd, len(hueranges) + 1)
-                        sequence = code[np.round(intervals[:len(hueranges)]).astype(np.int16)]
+                        sequence = code[np.round(intervals[1:len(hueranges)]).astype(np.int16)]
                         print(f"Point: {matchidx} ID Sequence: {sequence}")
 
                 if syncing:
