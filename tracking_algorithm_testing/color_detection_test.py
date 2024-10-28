@@ -59,16 +59,22 @@ trackedhue = []
 # The saturation of each matched point
 trackedsat = []
 
-# Color to synchronize off of
-syncColor = 0
-
 # Hue ranges for identifying colors
 hueranges = np.array([[160, 20], [75, 100], [100, 125]])
 
+# Color for synchronization pulses
+syncColor = 0
+
+# Sequence length
+seqLength = 2
+
+# Whether in the middle of a sync pulse
 onSyncColor = False
 
+# Whether code is being transmitted
 syncing = False
 
+# How many sync pulse rising edges
 syncNum = 0
 
 # Buffer for color sequence
@@ -135,39 +141,60 @@ while(1):
                 seenmatches[matchidx] = keypoints[match.queryIdx]
 
                 # Updates hue and saturation of matched point
-                detected = -1
                 trackedhue[matchidx].append(hue)
+
+                # Checks detected hue against possible ranges
                 for i in range(len(hueranges)):
                     if hueranges[i, 0] < hueranges[i, 1]:
+                        # If range does not wrap around
                         if hue > hueranges[i, 0] and hue < hueranges[i, 1]:
                             detected = i
                     else:
+                        # If range does wrap around
                         if hue > hueranges[i, 0] or hue < hueranges[i, 1]:
                             detected = i
                 
                 if detected == syncColor and (not onSyncColor):
+                    # If rising edge of sync pulse
                     onSyncColor = True
+
+                    # Increments rising edge count
                     syncNum+=1
+
+                    # Turns on syncing mode and resets buffer
                     if not syncing:
                         syncing = True
                         buffer = []
                 if detected != syncColor and onSyncColor:
+                    # If falling edge of sync pulse
                     onSyncColor = False
                     if syncing and syncNum >= 2:
+                        # If falling edge is after second sync pulse, code is completed
                         syncing = False
                         syncNum = 0
+
                         code = np.array(buffer, dtype=np.int16)
+
+                        # Detects falling and rising edges of sync pulse
                         syncLoc = np.diff((code == syncColor).astype(np.int16))
+
+                        # Gets center of the first and second sync pulses
                         syncStart = np.where(syncLoc == -1)[0][0]/2.
-                        syncEnd = (np.where(syncLoc == 1)[0][0]+(len(syncLoc)-1)+2)/2.
-                        intervals = np.linspace(syncStart, syncEnd, len(hueranges) + 1)
+                        syncEnd = (np.where(syncLoc == 1)[0][0]+len(syncLoc)+1)/2.
+
+                        # Gets intervals where the individual colors should be based on expected sequence length (note: includes sync pulses)
+                        # This uses a method like a bar code to figure out where the bars are by making a sort of ruler between calibration bars
+                        intervals = np.linspace(syncStart, syncEnd, seqLength + 2)
+
+                        # Gets the actual sequence using the intervals not including the sync pulses
                         sequence = code[np.round(intervals[1:len(hueranges)]).astype(np.int16)]
                         print(f"Point: {matchidx} ID Sequence: {sequence}")
 
                 if syncing:
+                    # Adds to buffer if recording sequence
                     buffer.append(detected)
                        
-
+                # Updates saturation
                 trackedsat[matchidx].append(saturation)
             else:
                 # Adds new match to list
@@ -195,6 +222,7 @@ while(1):
         # Draws blobs
         blobs = cv2.drawKeypoints(img, keypoints, blank, (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
     if showcameraview:
+        # Shows points on hue saturation plot
         cv2.imshow('image',blobs)
         if showdemoview:
             demoimg = cv2.subtract(demoimg, np.ones_like(demoimg) * decay_factor)
