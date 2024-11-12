@@ -3,7 +3,7 @@
 
 #include <Adafruit_NeoPixel.h>
 #ifdef __AVR__
- #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
+  #include <avr/power.h> // Required for 16 MHz Adafruit Trinket
 #endif
 
 // Which pin on the Arduino is connected to the NeoPixels?
@@ -11,24 +11,44 @@
 #define LED_PIN     2
 
 // How many NeoPixels are attached to the Arduino?
-#define LED_COUNT  2
+#define LED_COUNT  9
 
 // NeoPixel brightness, 0 (min) to 255 (max)
 #define BRIGHTNESS 50 // Set BRIGHTNESS to about 1/5 (max = 255)
 // R - 0 G - 1 B - 1
 
 //RGB enum for pattern
-enum RGB {
+enum Colors {
   R,
   G,
-  B
+  C,
+  P,
 };
-
-RGB LED1[3] = {G, R, B}; //RGB pattern for first neopixel
-RGB LED2[3] = {R, B, G}; //second neopixel
 
 // Declare our NeoPixel strip object:
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
+
+uint32_t colors[] = {
+  strip.Color(255, 0, 0, 255), // Red
+  strip.Color(128, 255, 0, 255), // Green
+  strip.Color(0, 255, 255, 255), // Cyan
+  strip.Color(128, 0, 255, 255), // Purple
+};
+
+uint32_t LEDS[9][5] = {
+  {R, G, C, P, R},
+  {R, G, C, P, R},
+  {R, G, C, P, R},
+  {R, G, C, P, R},
+  {R, G, C, P, R},
+  {R, G, C, P, R},
+  {R, G, C, P, R},
+  {R, G, C, P, R},
+  {R, G, C, P, R},
+};
+
+bool firstRun = true;
+
 // Argument 1 = Number of pixels in NeoPixel strip
 // Argument 2 = Arduino pin number (most are valid)
 // Argument 3 = Pixel type flags, add together as needed:
@@ -49,37 +69,24 @@ void setup() {
   strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
   strip.show();            // Turn OFF all pixels ASAP
   strip.setBrightness(BRIGHTNESS);
-
-
 }
 
 void loop() {
-
-  for (int i = 0; i < LED1.length; i++) {
-    switch (LED1[i]) {
-      case R:
-        strip.setPixelColor(0, strip.Color(255, 0, 0));
-      case G:
-        strip.setPixelColor(0, strip.Color(0, 255, 0));
-      case B:
-        strip.setPixelColor(0, strip.Color(0, 0, 255));
-
+  // if (firstRun) {
+    for (int i = 0; i < 5; i++) {
+      for(int j = 0; j < 9; j++) {
+        strip.setPixelColor(j, colors[LEDS[j][i]]);
+        printf("Pixel %d : %d", j, colors[LEDS[j][i]]);
+      }
+      delay(50); // Pause 1/20 second
+      strip.show();
     }
-    strip.show();
-    delay(50);
-    switch (LED2[i]) {
-      case R:
-        strip.setPixelColor(1, strip.Color(255, 0, 0));
-      case G:
-        strip.setPixelColor(1, strip.Color(0, 255, 0));
-      case B:
-        strip.setPixelColor(1, strip.Color(0, 0, 255));
-    }    
-    strip.show();
-  }
-
+  //    firstRun = false;
+  //  }
+  
+  // for (int k = 0; k < 9; k++) {
+  //   strip.setPixelColor(k, colors[G]);
+  // }
+  // strip.show();
+  // delay(500);
 }
-
-
-
-
