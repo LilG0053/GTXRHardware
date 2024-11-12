@@ -3,6 +3,103 @@ import numpy as np
 from matplotlib import pyplot as plt
 from math import sin, cos, radians
 
+
+class LEDMatch:
+    ageThres = 2
+    # Hue ranges for identifying colors
+    hueranges = np.array([[160, 20], [75, 100], [100, 125]])
+    # Color for synchronization pulses
+    syncColor = 0
+    # Sequence length
+    seqLength = 2
+    def __init__(self, keypoint, hue, saturation):
+        self.hue = []
+        self.saturation = []
+
+        self.id = np.array([])
+
+        # Whether in the middle of a sync pulse
+        self.onSyncColor = False
+
+        # Whether code is being transmitted
+        self.syncing = False
+
+        # How many sync pulse rising edges
+        self.syncNum = 0
+
+        # Buffer for color sequence
+        self.buffer = []
+
+        self.update(keypoint, hue, saturation)
+        pass
+    def getKeypoint(self):
+        return self.keypoint
+    def getHue(self):
+        return self.hue
+    def getSaturation(self):
+        return self.saturation
+    def getID(self):
+        return self.id
+    def update(self, keypoint, hue, saturation):
+        self.keypoint = keypoint
+        self.hue.append(hue)
+        self.saturation.append(saturation)
+        self.age = 0
+
+        # Checks detected hue against possible ranges
+        for i in range(len(self.hueranges)):
+            if self.hueranges[i, 0] < self.hueranges[i, 1]:
+                # If range does not wrap around
+                if hue > self.hueranges[i, 0] and hue < self.hueranges[i, 1]:
+                    detected = i
+            else:
+                # If range does wrap around
+                if hue > self.hueranges[i, 0] or hue < self.hueranges[i, 1]:
+                    detected = i
+        
+        if detected == self.syncColor and (not self.onSyncColor):
+            # If rising edge of sync pulse
+            self.onSyncColor = True
+
+            # Increments rising edge count
+            self.syncNum+=1
+
+            # Turns on syncing mode and resets buffer
+            if not self.syncing:
+                self.syncing = True
+                self.buffer = []
+        if detected != self.syncColor and self.onSyncColor:
+            # If falling edge of sync pulse
+            self.onSyncColor = False
+            if self.syncing and self.syncNum >= 2:
+                # If falling edge is after second sync pulse, code is completed
+                self.syncing = False
+                self.syncNum = 0
+
+                code = np.array(self.buffer, dtype=np.int16)
+
+                # Detects falling and rising edges of sync pulse
+                syncLoc = np.diff((code == self.syncColor).astype(np.int16))
+
+                # Gets center of the first and second sync pulses
+                syncStart = np.where(syncLoc == -1)[0][0]/2.
+                syncEnd = (np.where(syncLoc == 1)[0][0]+len(syncLoc)+1)/2.
+
+                # Gets intervals where the individual colors should be based on expected sequence length (note: includes sync pulses)
+                # This uses a method like a bar code to figure out where the bars are by making a sort of ruler between calibration bars
+                intervals = np.linspace(syncStart, syncEnd, self.seqLength + 2)
+
+                # Gets the actual sequence using the intervals not including the sync pulses
+                sequence = code[np.round(intervals[1:len(self.hueranges)]).astype(np.int16)]
+                self.id = sequence
+
+        if self.syncing:
+            # Adds to buffer if recording sequence
+            self.buffer.append(detected)
+    def checkAge(self):
+        self.age += 1
+        return self.age < self.ageThres
+
 # Video input from file
 cap = cv2.VideoCapture('output.avi')
 
@@ -50,36 +147,6 @@ lastdescriptors = np.array([])
 
 # List of matched points, which is updated with the most recent location of each point
 seenmatches = []
-# How many times each point has been successfully matched
-matchstats = []
-# How many frames each match has existed for
-matchage = []
-# The hue of each matched point
-trackedhue = []
-# The saturation of each matched point
-trackedsat = []
-
-# Hue ranges for identifying colors
-hueranges = np.array([[160, 20], [75, 100], [100, 125]])
-
-# Color for synchronization pulses
-syncColor = 0
-
-# Sequence length
-seqLength = 2
-
-# Whether in the middle of a sync pulse
-onSyncColor = False
-
-# Whether code is being transmitted
-syncing = False
-
-# How many sync pulse rising edges
-syncNum = 0
-
-# Buffer for color sequence
-buffer = []
-
 
 demorad = 256
 democolors = ((255,255,0),(255,0,255),(0,255,255))
@@ -109,11 +176,10 @@ while(1):
     descriptors = np.array([point.pt for point in keypoints], np.float32)
     blank = np.zeros((1, 1))
     if not firsttime:
-        # Finds matches of current keypoint locations with previous kepoint locations
+        # Finds matches of current keypoint locations with previous keypoint locations
         matches = matcher.match(descriptors, lastdescriptors)
         for match in matches:
             # Gets previous and current locations of match
-            lastloc = lastpoints[match.trainIdx].pt
             curloc = keypoints[match.queryIdx].pt
 
             # Calculates hue and saturation of current match
@@ -133,91 +199,26 @@ while(1):
             saturation = float(hsvavg[0,0,1])
 
             # Checks to see if current match has been seen before (uses previous keypoint)
-            matchidx = seenmatches.index(lastpoints[match.trainIdx]) if lastpoints[match.trainIdx] in seenmatches else -1
+            matchedPoints = [match.getKeypoint() for match in seenmatches]
+            matchidx = matchedPoints.index(lastpoints[match.trainIdx]) if lastpoints[match.trainIdx] in matchedPoints else -1
             if matchidx != -1:
-                # Increments number of times point has been successfully matched
-                matchstats[matchidx] += 1
                 # Updates match to use current point location
-                seenmatches[matchidx] = keypoints[match.queryIdx]
-
-                # Updates hue and saturation of matched point
-                trackedhue[matchidx].append(hue)
-
-                # Checks detected hue against possible ranges
-                for i in range(len(hueranges)):
-                    if hueranges[i, 0] < hueranges[i, 1]:
-                        # If range does not wrap around
-                        if hue > hueranges[i, 0] and hue < hueranges[i, 1]:
-                            detected = i
-                    else:
-                        # If range does wrap around
-                        if hue > hueranges[i, 0] or hue < hueranges[i, 1]:
-                            detected = i
-                
-                if detected == syncColor and (not onSyncColor):
-                    # If rising edge of sync pulse
-                    onSyncColor = True
-
-                    # Increments rising edge count
-                    syncNum+=1
-
-                    # Turns on syncing mode and resets buffer
-                    if not syncing:
-                        syncing = True
-                        buffer = []
-                if detected != syncColor and onSyncColor:
-                    # If falling edge of sync pulse
-                    onSyncColor = False
-                    if syncing and syncNum >= 2:
-                        # If falling edge is after second sync pulse, code is completed
-                        syncing = False
-                        syncNum = 0
-
-                        code = np.array(buffer, dtype=np.int16)
-
-                        # Detects falling and rising edges of sync pulse
-                        syncLoc = np.diff((code == syncColor).astype(np.int16))
-
-                        # Gets center of the first and second sync pulses
-                        syncStart = np.where(syncLoc == -1)[0][0]/2.
-                        syncEnd = (np.where(syncLoc == 1)[0][0]+len(syncLoc)+1)/2.
-
-                        # Gets intervals where the individual colors should be based on expected sequence length (note: includes sync pulses)
-                        # This uses a method like a bar code to figure out where the bars are by making a sort of ruler between calibration bars
-                        intervals = np.linspace(syncStart, syncEnd, seqLength + 2)
-
-                        # Gets the actual sequence using the intervals not including the sync pulses
-                        sequence = code[np.round(intervals[1:len(hueranges)]).astype(np.int16)]
-                        print(f"Point: {matchidx} ID Sequence: {sequence}")
-
-                if syncing:
-                    # Adds to buffer if recording sequence
-                    buffer.append(detected)
-                       
-                # Updates saturation
-                trackedsat[matchidx].append(saturation)
+                seenmatches[matchidx].update(keypoints[match.queryIdx], hue, saturation)
+                print(f"Point: {matchidx} ID Sequence: {seenmatches[matchidx].getID()}")
             else:
                 # Adds new match to list
-                seenmatches.append(keypoints[match.queryIdx])
-                # Automatically has been seen twice and has age of 2
-                matchstats.append(2)
-                matchage.append(2)
-                # Adds hue and saturation
-                trackedhue.append([hue])
-                trackedsat.append([saturation])
-        # Increments ages of everything
-        matchage = [age + 1 for age in matchage]
-        # Removes every match where the age is at least 2 ahead of the count
-        for i in range(len(matchage))[::-1]:
-            if matchage[i] > matchstats[i] + 1:
-                matchstats.pop(i)
+                newMatch = LEDMatch(keypoints[match.queryIdx], hue, saturation)
+                seenmatches.append(newMatch)
+
+        # Removes every match where the age is too old
+        for i in range(len(seenmatches))[::-1]:
+            if not seenmatches[i].checkAge():
                 seenmatches.pop(i)
-                matchage.pop(i)
-                trackedhue.pop(i)
-                trackedsat.pop(i)
+
         # Draws blobs
         if showcameraview:
-            blobs = cv2.drawKeypoints(img, seenmatches, blank, (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            matchedPoints = [match.getKeypoint() for match in seenmatches]
+            blobs = cv2.drawKeypoints(img, matchedPoints, blank, (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
     elif showcameraview:
         # Draws blobs
         blobs = cv2.drawKeypoints(img, keypoints, blank, (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
@@ -226,9 +227,9 @@ while(1):
         cv2.imshow('image',blobs)
         if showdemoview:
             demoimg = cv2.subtract(demoimg, np.ones_like(demoimg) * decay_factor)
-            for i in range(len(trackedhue)):
-                dot = trackedhue[i]
-                sat = trackedsat[i]
+            for i in range(len(seenmatches)):
+                dot = seenmatches[i].getHue()
+                sat = seenmatches[i].getSaturation()
                 if len(dot) > 5:
                     lastpoint = (demorad + demorad * (sat[-2] / 255) * cos(radians(dot[-2]*2)),
                         demorad + demorad * (sat[-2] / 255) * sin(radians(dot[-2]*2)))
@@ -253,7 +254,7 @@ while(1):
 cap.release()
 cv2.destroyAllWindows()
 
-npcolors = [np.array(hue) for hue in trackedhue]
+npcolors = [np.array(match.getHue()) for match in seenmatches]
 
 for dot in npcolors:
     plt.plot(dot)
