@@ -48,6 +48,7 @@ class LEDMatch:
 
         # Checks detected hue against possible ranges
         for i in range(len(self.hueranges)):
+            detected = -1
             if self.hueranges[i, 0] < self.hueranges[i, 1]:
                 # If range does not wrap around
                 if hue > self.hueranges[i, 0] and hue < self.hueranges[i, 1]:
@@ -101,7 +102,7 @@ class LEDMatch:
         return self.age < self.ageThres
 
 # Video input from file
-cap = cv2.VideoCapture('output.avi')
+cap = cv2.VideoCapture('output2.avi')
 
 # Blob detection parameters
 bparams = cv2.SimpleBlobDetector_Params()
