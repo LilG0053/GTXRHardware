@@ -86,6 +86,7 @@ void loop() {
       lastlooptime = millis();
       strip.show();
     }
+    delay(TIMEDELAY);
   //    firstRun = false;
   //  }
   
