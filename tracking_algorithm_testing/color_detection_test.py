@@ -58,46 +58,46 @@ class LEDMatch:
                 # If range does wrap around
                 if hue > self.hueranges[i, 0] or hue < self.hueranges[i, 1]:
                     detected = i
-        
-        if detected == self.syncColor and (not self.onSyncColor):
-            # If rising edge of sync pulse
-            self.onSyncColor = True
+        if detected != -1:
+            if detected == self.syncColor and (not self.onSyncColor):
+                # If rising edge of sync pulse
+                self.onSyncColor = True
 
-            # Increments rising edge count
-            self.syncNum+=1
+                # Increments rising edge count
+                self.syncNum+=1
 
-            # Turns on syncing mode and resets buffer
-            if not self.syncing:
-                self.syncing = True
-                self.buffer = []
-        if detected != self.syncColor and self.onSyncColor:
-            # If falling edge of sync pulse
-            self.onSyncColor = False
-            if self.syncing and self.syncNum >= 2:
-                # If falling edge is after second sync pulse, code is completed
-                self.syncing = False
-                self.syncNum = 0
+                # Turns on syncing mode and resets buffer
+                if not self.syncing:
+                    self.syncing = True
+                    self.buffer = []
+            if detected != self.syncColor and self.onSyncColor:
+                # If falling edge of sync pulse
+                self.onSyncColor = False
+                if self.syncing and self.syncNum >= 2:
+                    # If falling edge is after second sync pulse, code is completed
+                    self.syncing = False
+                    self.syncNum = 0
 
-                code = np.array(self.buffer, dtype=np.int16)
+                    code = np.array(self.buffer, dtype=np.int16)
 
-                # Detects falling and rising edges of sync pulse
-                syncLoc = np.diff((code == self.syncColor).astype(np.int16))
+                    # Detects falling and rising edges of sync pulse
+                    syncLoc = np.diff((code == self.syncColor).astype(np.int16))
 
-                # Gets center of the first and second sync pulses
-                syncStart = np.where(syncLoc == -1)[0][0]/2.
-                syncEnd = (np.where(syncLoc == 1)[0][0]+len(syncLoc)+1)/2.
+                    # Gets center of the first and second sync pulses
+                    syncStart = np.where(syncLoc == -1)[0][0]/2.
+                    syncEnd = (np.where(syncLoc == 1)[0][0]+len(syncLoc)+1)/2.
 
-                # Gets intervals where the individual colors should be based on expected sequence length (note: includes sync pulses)
-                # This uses a method like a bar code to figure out where the bars are by making a sort of ruler between calibration bars
-                intervals = np.linspace(syncStart, syncEnd, self.seqLength + 2)
+                    # Gets intervals where the individual colors should be based on expected sequence length (note: includes sync pulses)
+                    # This uses a method like a bar code to figure out where the bars are by making a sort of ruler between calibration bars
+                    intervals = np.linspace(syncStart, syncEnd, self.seqLength + 2)
 
-                # Gets the actual sequence using the intervals not including the sync pulses
-                sequence = code[np.round(intervals[1:len(self.hueranges)]).astype(np.int16)]
-                self.id = sequence
+                    # Gets the actual sequence using the intervals not including the sync pulses
+                    sequence = code[np.round(intervals[1:len(self.hueranges)]).astype(np.int16)]
+                    self.id = sequence
 
-        if self.syncing:
-            # Adds to buffer if recording sequence
-            self.buffer.append(detected)
+            if self.syncing:
+                # Adds to buffer if recording sequence
+                self.buffer.append(detected)
     def checkAge(self):
         self.age += 1
         return self.age < self.ageThres
