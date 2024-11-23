@@ -86,6 +86,10 @@ void loop() {
       lastlooptime = millis();
       strip.show();
     }
+    for (int i = 0; i < 5; i++) {
+      strip.setPixelColor(i, colors[G]);
+    }
+    strip.show();
     delay(TIMEDELAY);
   //    firstRun = false;
   //  }
