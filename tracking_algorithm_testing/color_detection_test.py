@@ -7,11 +7,11 @@ from math import sin, cos, radians
 class LEDMatch:
     ageThres = 2
     # Hue ranges for identifying colors
-    hueranges = np.array([[160, 20], [75, 100], [100, 125]])
+    hueranges = np.array([[160, 20], [75, 100], [100, 125], [130,155]])
     # Color for synchronization pulses
     syncColor = 0
     # Sequence length
-    seqLength = 2
+    seqLength = 3
     def __init__(self, keypoint, hue, saturation):
         self.hue = []
         self.saturation = []
@@ -41,14 +41,15 @@ class LEDMatch:
     def getID(self):
         return self.id
     def update(self, keypoint, hue, saturation):
+        #print("Updating with  hue %d:"%(hue))
         self.keypoint = keypoint
         self.hue.append(hue)
         self.saturation.append(saturation)
         self.age = 0
 
         # Checks detected hue against possible ranges
+        detected = -1
         for i in range(len(self.hueranges)):
-            detected = -1
             if self.hueranges[i, 0] < self.hueranges[i, 1]:
                 # If range does not wrap around
                 if hue > self.hueranges[i, 0] and hue < self.hueranges[i, 1]:
@@ -110,17 +111,17 @@ bparams = cv2.SimpleBlobDetector_Params()
 # Filtering by area
 bparams.filterByArea = True
 bparams.minArea = 30
-bparams.maxArea = 300
+bparams.maxArea = 1000
 
 # Filtering by circularity
-bparams.filterByCircularity = True
-bparams.minCircularity = 0.5
+bparams.filterByCircularity = False
+bparams.minCircularity = 0.2
 
 bparams.filterByConvexity = False
 
 # Filtering by inertia
 bparams.filterByInertia = True
-bparams.minInertiaRatio = 0.4
+bparams.minInertiaRatio = 0.3
 
 # Filtering by brightness threshold
 bparams.minThreshold = 100
