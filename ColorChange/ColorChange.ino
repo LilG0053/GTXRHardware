@@ -82,15 +82,16 @@ void loop() {
         strip.setPixelColor(j, colors[LEDS[j][i]]);
         printf("Pixel %d : %d", j, colors[LEDS[j][i]]);
       }
+      strip.show();
       while(millis() < lastlooptime + TIMEDELAY);
       lastlooptime = millis();
-      strip.show();
     }
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 9; i++) {
       strip.setPixelColor(i, colors[G]);
     }
     strip.show();
-    delay(TIMEDELAY);
+    while(millis() < lastlooptime + TIMEDELAY  +1000);
+    lastlooptime = millis();
   //    firstRun = false;
   //  }
   

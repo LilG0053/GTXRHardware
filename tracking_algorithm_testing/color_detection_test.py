@@ -12,6 +12,9 @@ class LEDMatch:
     syncColor = 0
     # Sequence length
     seqLength = 3
+    # Valid color sequence list
+    seqlist = [[1,2,1],[1,2,2],[1,2,3],[2,1,3],[2,1,2],[2,3,1],[3,1,3],[3,1,2],[3,2,3]]
+    seqlist = [np.array(element) for element in seqlist]
     def __init__(self, keypoint, hue, saturation):
         self.hue = []
         self.saturation = []
@@ -121,11 +124,11 @@ bparams.filterByConvexity = False
 
 # Filtering by inertia
 bparams.filterByInertia = True
-bparams.minInertiaRatio = 0.3
+bparams.minInertiaRatio = 0.1
 
 # Filtering by brightness threshold
 bparams.minThreshold = 100
-bparams.maxThreshold = 250
+bparams.maxThreshold = 255
 
 # Blob detection instance from params
 bdet = cv2.SimpleBlobDetector_create(bparams)
@@ -225,8 +228,18 @@ while(1):
         # Draws blobs
         blobs = cv2.drawKeypoints(img, keypoints, blank, (0,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
     if showcameraview:
-        # Shows points on hue saturation plot
+        for match in seenmatches:
+            if match.getID().size >= 3:
+                matchindex = -1
+                for i in range(len(match.seqlist)):
+                    if np.array_equal(match.seqlist[i],match.getID()):
+                        matchindex = i
+                        break
+                if matchindex != -1:
+                    bgrcolor = cv2.cvtColor(np.array([[[180*(matchindex/len(match.seqlist)),255,255]]],dtype=np.uint8),cv2.COLOR_HSV2BGR)[0][0].tolist()
+                    blobs = cv2.circle(blobs,np.int32(match.getKeypoint().pt),10,bgrcolor,-1) #(255,0,0)
         cv2.imshow('image',blobs)
+        # Shows points on hue saturation plot
         if showdemoview:
             demoimg = cv2.subtract(demoimg, np.ones_like(demoimg) * decay_factor)
             for i in range(len(seenmatches)):
