@@ -2,165 +2,7 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 from math import sin, cos, radians
-
-
-class LEDMatch:
-    ageThres = 2
-    # Hue ranges for identifying colors
-    hueranges = np.array([[160, 50], [51, 140]])
-    # Color for synchronization pulses
-    syncColor = 1
-    # Sequence length
-    seqLength = 4
-    # number of zero colors until packet end is assumed
-    blankThreshold = 10
-    # Valid color sequence list
-    # seqlist = [[1,2,1],[1,2,2],[1,2,3],[2,1,3],[2,1,2],[2,3,1],[3,1,3],[3,1,2],[3,2,3]]
-    seqlist = [ [1,0,1,0,1,1,0,1], [1,0,1,1,0,1,0,1], [1,0,0,1,0,1,0,1], [1,0,0,1,1,0,0,1], [1,0,0,0,1,1,0,1], [1,0,0,0,1,0,0,1], [1,0,1,1,1,0,0,1], [1,0,1,0,0,1,0,1], [1,0,0,1,1,1,0,1] ]
-    seqlist = [np.array(element) for element in seqlist]
-    def __init__(self, keypoint, hue, saturation, brightness):
-        self.hue = []
-        self.saturation = []
-        self.brightness = []
-
-        self.id = np.array([])
-
-        # average size of marker (for stability + signaling)
-        self.avgSize = keypoint.size
-
-        # Whether in the middle of a sync pulse
-        self.onSyncColor = False
-
-        # Whether code is being transmitted
-        self.syncing = False
-
-        # How many sync pulse rising edges
-        self.syncNum = 0
-
-        # number of blank colors
-        self.numBlanks = 0
-
-        # Buffer for color sequence
-        self.buffer = []
-
-        self.update(keypoint, hue, saturation, brightness)
-        pass
-    def getKeypoint(self):
-        return self.keypoint
-    def getHue(self):
-        return self.hue
-    def getSaturation(self):
-        return self.saturation
-    def getBrightness(self):
-        return self.brightness
-    def getAvgSize(self):
-        return self.avgSize
-    def getID(self):
-        return self.id
-    def update(self, keypoint, hue, saturation, brightness):
-        #print("Updating with  hue %d:"%(hue))
-        self.keypoint = keypoint
-        self.hue.append(hue)
-        self.saturation.append(saturation)
-        self.brightness.append(brightness)
-        self.age = 0
-        self.avgSize = self.avgSize * 0.96 + keypoint.size * 0.04
-
-        # Checks detected hue against possible ranges
-        detected = -1
-        for i in range(len(self.hueranges)):
-            if self.hueranges[i, 0] < self.hueranges[i, 1]:
-                # If range does not wrap around
-                if hue > self.hueranges[i, 0] and hue < self.hueranges[i, 1]:
-                    detected = i
-            else:
-                # If range does wrap around
-                if hue > self.hueranges[i, 0] or hue < self.hueranges[i, 1]:
-                    detected = i
-        if detected != -1:
-            if detected != self.syncColor:
-                self.numBlanks += 1
-                if self.syncing and self.numBlanks > self.blankThreshold:
-                    self.syncing = False
-                    #self.buffer = self.buffer[:-self.numBlanks - 2]
-                    print(self.buffer)
-                    code = np.array(self.buffer, dtype=np.int16)
-
-                    # Detects falling and rising edges of sync pulse
-                    syncLoc = np.diff((code == self.syncColor).astype(np.int16))
-                    # print("syncstart array:")
-                    # print(np.where(syncLoc == -1))
-                    # print("syncend array:")
-                    # print(np.where(syncLoc == 1))
-
-                    # Gets center of the first and second sync pulses
-                    if np.count_nonzero(np.where(syncLoc == -1)) > 0 and np.count_nonzero(np.where(syncLoc == 1)) > 0:
-                        syncStart = np.where(syncLoc == -1)[0][0]/2.
-                        syncEnd = (np.where(syncLoc == 1)[0][-1]+np.where(syncLoc == -1)[0][-1]+1)/2
-                        # syncEnd = (np.where(syncLoc == 1)[0][0]+len(syncLoc)+1)/2.
-                        print("syncStart: %f. syncEnd: %f"%(syncStart,syncEnd))
-
-                        # Gets intervals where the individual colors should be based on expected sequence length (note: includes sync pulses)
-                        # This uses a method like a bar code to figure out where the bars are by making a sort of ruler between calibration bars
-                        intervals = np.linspace(syncStart, syncEnd, self.seqLength + 4)
-                        print(intervals)
-
-                        # # Gets the actual sequence using the intervals not including the sync pulses
-                        # sequence = code[np.round(intervals[1:len(self.hueranges)]).astype(np.int16)]
-                        sequence = code[np.round(intervals).astype(np.int16)]
-                        self.id = sequence
-                        print("bit sequence:")
-                        print(sequence)
-            else:
-                self.numBlanks = 0
-                if not self.syncing:
-                    self.syncing = True
-                    self.buffer = []
-            # if detected == self.syncColor and (not self.onSyncColor):
-            #     # If rising edge of sync pulse
-            #     self.onSyncColor = True
-
-            #     # Increments rising edge count
-            #     self.syncNum+=1
-
-            #     # Turns on syncing mode and resets buffer
-            #     if not self.syncing:
-            #         self.syncing = True
-            #         self.buffer = []
-            # if detected != self.syncColor and self.onSyncColor:
-            #     # If falling edge of sync pulse
-            #     self.onSyncColor = False
-            #     if self.syncing and self.syncNum >= 2:
-            #         # If falling edge is after second sync pulse, code is completed
-            #         self.syncing = False
-            #         self.syncNum = 0
-
-            #         code = np.array(self.buffer, dtype=np.int16)
-
-            #         # Detects falling and rising edges of sync pulse
-            #         syncLoc = np.diff((code == self.syncColor).astype(np.int16))
-
-            #         # Gets center of the first and second sync pulses
-            #         syncStart = np.where(syncLoc == -1)[0][0]/2.
-            #         syncEnd = (np.where(syncLoc == 1)[0][0]+len(syncLoc)+1)/2.
-
-            #         # Gets intervals where the individual colors should be based on expected sequence length (note: includes sync pulses)
-            #         # This uses a method like a bar code to figure out where the bars are by making a sort of ruler between calibration bars
-            #         intervals = np.linspace(syncStart, syncEnd, self.seqLength + 2)
-
-            #         # Gets the actual sequence using the intervals not including the sync pulses
-            #         sequence = code[np.round(intervals[1:len(self.hueranges)]).astype(np.int16)]
-            #         self.id = sequence
-
-            if self.syncing:
-                # Adds to buffer if recording sequence
-                self.buffer.append(detected)
-                # sanity check buffer length
-                if len(self.buffer) > 40:
-                    self.buffer = self.buffer[-40:]
-    def checkAge(self):
-        self.age += 1
-        return self.age < self.ageThres
+import LEDMatch
 
 # Video input from camera
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
@@ -189,7 +31,7 @@ bparams.minCircularity = 0.1
 bparams.filterByConvexity = False
 
 # Filtering by inertia
-bparams.filterByInertia = True
+bparams.filterByInertia = False
 bparams.minInertiaRatio = 0.1
 
 # Filtering by brightness threshold
@@ -297,7 +139,7 @@ while(1):
                     #print(f"Point: {matchidx} ID Sequence: {seenmatches[matchidx].getID()}")
                 else:
                     # Adds new match to list
-                    newMatch = LEDMatch(keypoints[match.queryIdx], hue, saturation, brightness)
+                    newMatch = LEDMatch.LEDMatch(keypoints[match.queryIdx], hue, saturation, brightness)
                     seenmatches.append(newMatch)
 
         # Removes every match where the age is too old
