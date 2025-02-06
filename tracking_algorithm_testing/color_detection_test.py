@@ -7,7 +7,7 @@ from math import sin, cos, radians
 class LEDMatch:
     ageThres = 2
     # Hue ranges for identifying colors
-    hueranges = np.array([[160, 20], [75, 100], [100, 125], [130,155]])
+    hueranges = np.array([[150, 25], [25, 75], [75, 125], [125, 150]])
     # Color for synchronization pulses
     syncColor = 0
     # Sequence length
