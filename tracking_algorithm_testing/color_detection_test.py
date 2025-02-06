@@ -3,107 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from math import sin, cos, radians
 
-
-class LEDMatch:
-    ageThres = 2
-    # Hue ranges for identifying colors
-    hueranges = np.array([[150, 25], [25, 75], [75, 125], [125, 150]])
-    # Color for synchronization pulses
-    syncColor = 0
-    # Sequence length
-    seqLength = 3
-    # Valid color sequence list
-    seqlist = [[1,2,1],[1,2,2],[1,2,3],[2,1,3],[2,1,2],[2,3,1],[3,1,3],[3,1,2],[3,2,3]]
-    seqlist = [np.array(element) for element in seqlist]
-    def __init__(self, keypoint, hue, saturation):
-        self.hue = []
-        self.saturation = []
-
-        self.id = np.array([])
-
-        # Whether in the middle of a sync pulse
-        self.onSyncColor = False
-
-        # Whether code is being transmitted
-        self.syncing = False
-
-        # How many sync pulse rising edges
-        self.syncNum = 0
-
-        # Buffer for color sequence
-        self.buffer = []
-
-        self.update(keypoint, hue, saturation)
-        pass
-    def getKeypoint(self):
-        return self.keypoint
-    def getHue(self):
-        return self.hue
-    def getSaturation(self):
-        return self.saturation
-    def getID(self):
-        return self.id
-    def update(self, keypoint, hue, saturation):
-        #print("Updating with  hue %d:"%(hue))
-        self.keypoint = keypoint
-        self.hue.append(hue)
-        self.saturation.append(saturation)
-        self.age = 0
-
-        # Checks detected hue against possible ranges
-        detected = -1
-        for i in range(len(self.hueranges)):
-            if self.hueranges[i, 0] < self.hueranges[i, 1]:
-                # If range does not wrap around
-                if hue > self.hueranges[i, 0] and hue < self.hueranges[i, 1]:
-                    detected = i
-            else:
-                # If range does wrap around
-                if hue > self.hueranges[i, 0] or hue < self.hueranges[i, 1]:
-                    detected = i
-        if detected != -1:
-            if detected == self.syncColor and (not self.onSyncColor):
-                # If rising edge of sync pulse
-                self.onSyncColor = True
-
-                # Increments rising edge count
-                self.syncNum+=1
-
-                # Turns on syncing mode and resets buffer
-                if not self.syncing:
-                    self.syncing = True
-                    self.buffer = []
-            if detected != self.syncColor and self.onSyncColor:
-                # If falling edge of sync pulse
-                self.onSyncColor = False
-                if self.syncing and self.syncNum >= 2:
-                    # If falling edge is after second sync pulse, code is completed
-                    self.syncing = False
-                    self.syncNum = 0
-
-                    code = np.array(self.buffer, dtype=np.int16)
-
-                    # Detects falling and rising edges of sync pulse
-                    syncLoc = np.diff((code == self.syncColor).astype(np.int16))
-
-                    # Gets center of the first and second sync pulses
-                    syncStart = np.where(syncLoc == -1)[0][0]/2.
-                    syncEnd = (np.where(syncLoc == 1)[0][0]+len(syncLoc)+1)/2.
-
-                    # Gets intervals where the individual colors should be based on expected sequence length (note: includes sync pulses)
-                    # This uses a method like a bar code to figure out where the bars are by making a sort of ruler between calibration bars
-                    intervals = np.linspace(syncStart, syncEnd, self.seqLength + 2)
-
-                    # Gets the actual sequence using the intervals not including the sync pulses
-                    sequence = code[np.round(intervals[1:len(self.hueranges)]).astype(np.int16)]
-                    self.id = sequence
-
-            if self.syncing:
-                # Adds to buffer if recording sequence
-                self.buffer.append(detected)
-    def checkAge(self):
-        self.age += 1
-        return self.age < self.ageThres
+from LEDMatch import LEDMatch
 
 # Video input from file
 cap = cv2.VideoCapture('output2.avi')
@@ -202,17 +102,19 @@ while(1):
             hue = float(hsvavg[0,0,0])
             # select saturation channel of single average pixel
             saturation = float(hsvavg[0,0,1])
+            # gets lightness channel of average pixel
+            lightness = float(hsvavg[0,0,2])
 
             # Checks to see if current match has been seen before (uses previous keypoint)
             matchedPoints = [match.getKeypoint() for match in seenmatches]
             matchidx = matchedPoints.index(lastpoints[match.trainIdx]) if lastpoints[match.trainIdx] in matchedPoints else -1
             if matchidx != -1:
                 # Updates match to use current point location
-                seenmatches[matchidx].update(keypoints[match.queryIdx], hue, saturation)
+                seenmatches[matchidx].update(keypoints[match.queryIdx], hue, saturation, lightness)
                 print(f"Point: {matchidx} ID Sequence: {seenmatches[matchidx].getID()}")
             else:
                 # Adds new match to list
-                newMatch = LEDMatch(keypoints[match.queryIdx], hue, saturation)
+                newMatch = LEDMatch(keypoints[match.queryIdx], hue, saturation, lightness)
                 seenmatches.append(newMatch)
 
         # Removes every match where the age is too old
