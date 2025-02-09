@@ -27,9 +27,6 @@ class LEDMatch:
         # Whether code is being transmitted
         self.syncing = False
 
-        # How many sync pulse rising edges
-        self.syncNum = 0
-
         # number of blank colors
         self.numBlanks = 0
 
@@ -51,6 +48,7 @@ class LEDMatch:
     def getID(self):
         return self.id
     def update(self, keypoint, hue, saturation, brightness):
+        # Updates data from latest match
         #print("Updating with  hue %d:"%(hue))
         self.keypoint = keypoint
         self.hue.append(hue)
@@ -70,27 +68,27 @@ class LEDMatch:
                 # If range does wrap around
                 if hue > self.hueranges[i, 0] or hue < self.hueranges[i, 1]:
                     detected = i
+        
+        # If valid color was detected
         if detected != -1:
             if detected != self.offColor:
                 if not self.syncing:
                     self.syncing = True
                     self.buffer = []
-                self.syncNum += 1
             else:
                 if self.syncing:
                     self.syncing = False
-                    self.syncNum = 0
 
                     code = np.array(self.buffer, dtype=np.int16)
                     print("buffer: " + str(code))
 
-                    # Gets intervals where the individual colors should be based on expected sequence length (note: includes sync pulses)
+                    # Gets intervals where the individual colors should be based on expected sequence length
                     # This uses a method like a bar code to figure out where the bars are by making a sort of ruler between calibration bars
                     startind = ((len(code) / self.seqLength) - 1) / 2
                     intervals = np.linspace(startind, len(code) - 1 - startind, self.seqLength)
                     # print("intervals: "+str(intervals))
 
-                    # Gets the actual sequence using the intervals not including the sync pulses
+                    # Gets the actual sequence using the intervals (sampled in the middle of each color)
                     sequence = code[np.round(intervals).astype(np.int16)]
                     # print("sequence: "+str(sequence))
                     self.id = sequence
